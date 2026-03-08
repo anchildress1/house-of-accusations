@@ -14,7 +14,7 @@ pre-commit:
 commit-msg:
   commands:
     commitlint:
-      run: npx --no-install commitlint --edit {1}
+      run: cd web && npx --no-install commitlint --edit {1}
 
 pre-push:
   parallel: false
