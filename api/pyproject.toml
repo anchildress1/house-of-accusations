@@ -44,8 +44,8 @@ fail_under = 85
 strict = true
 ignore_missing_imports = true
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.25",
     "pytest-cov>=6.0",

@@ -1,4 +1,4 @@
-target-version = "py312"
+target-version = "py313"
 line-length = 100
 
 [lint]
@@ -15,8 +15,6 @@ select = [
     "RUF",  # ruff-specific
 ]
 ignore = [
-    "ANN101",  # missing type annotation for self
-    "ANN102",  # missing type annotation for cls
     "S101",    # use of assert (OK in tests)
 ]
 
