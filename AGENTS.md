@@ -184,6 +184,12 @@ Lower Cellar    |  Workshop    |  Back Hall
 - No raw SQL — use parameterized queries or ORM
 - OWASP top 10 awareness in all code reviews
 
+### GitHub Actions: Action Pinning
+
+- `actions/*` references may use tagged major versions (e.g., `@v6`)
+- All other actions must be pinned to a commit SHA with the version in a
+  comment (e.g., `@abc123 # v4.1.0`)
+
 ### Code Quality
 
 - SonarQube analysis on all PRs

@@ -1,9 +1,17 @@
 {
   "packages": {
     ".": {
-      "release-type": "node",
+      "release-type": "simple",
       "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": true
+      "bump-patch-for-minor-pre-major": true,
+      "extra-files": [
+        "web/package.json",
+        {
+          "type": "toml",
+          "path": "api/pyproject.toml",
+          "jsonpath": "$.project.version"
+        }
+      ]
     }
   }
 }
