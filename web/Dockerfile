@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim AS builder
+FROM node:22-bookworm-slim AS builder
 
 RUN npm install -g pnpm@10
 
@@ -10,7 +10,7 @@ RUN LEFTHOOK=0 pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm build
 
-FROM node:20-bookworm-slim AS runner
+FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
