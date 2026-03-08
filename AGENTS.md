@@ -50,29 +50,71 @@ All data lives in the `supascribe-notes` Supabase project under two schemas:
 - **`accusations`** — game tables: sessions, audit runs, evidence selections.
   Separate RLS role with no write access to `public`.
 
+### `public.cards` Schema (read-only, do not modify)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `objectID` | uuid (PK) | `gen_random_uuid()` default |
+| `title` | text | Unique, visible to player |
+| `blurb` | text | Unique, visible to player |
+| `fact` | text | Unique, hidden until final reveal |
+| `category` | text | Maps to room categories |
+| `signal` | smallint | 1–5, CHECK constraint |
+| `url` | text | Nullable |
+| `tags` | jsonb | Default `{}` |
+| `projects` | text[] | Default `{}` |
+| `created_at` | timestamptz | |
+| `updated_at` | timestamptz | |
+| `deleted_at` | timestamptz | Nullable (soft delete) |
+
+Related tables (read-only): `public.card_revisions`, `public.generation_runs`.
+
 ### Card Access Rules
 
-- Cards come from `public.cards` where `signal > 2`
-- Use existing column names as-is (`title`, `blurb`, `fact`, `category`,
-  `objectID`). Do not rename columns.
+- Cards come from `public.cards` where `category = :room AND signal > 2`,
+  excluding cards already consumed in the current session
+- Use existing column names as-is. Do not rename columns.
 - The `fact` column is hidden from the player until the final reveal.
 - The Auditor sees `fact` immediately upon card draw.
+- Card query pattern:
+  ```sql
+  SELECT * FROM public.cards
+  WHERE category = :room AND signal > 2
+    AND "objectID" NOT IN (:consumed_ids)
+  ORDER BY random() LIMIT 6
+  ```
+
+### `accusations` Schema (game tables)
+
+Tables to be defined via migrations in `supabase/migrations/`. Separate RLS
+role with no write access to `public`. Core tables:
+
+- **`accusations.sessions`** — session_id (PK), state (enum), accusation_text,
+  created_at, updated_at
+- **`accusations.evidence_selections`** — id, session_id (FK), card_id (FK to
+  `public.cards.objectID`), user_position (proof/objection), ai_score, room,
+  created_at
+- **`accusations.ai_audit_run`** — id, session_id (FK), chosen_card_id,
+  user_position, contract_name, contract_version, final_score,
+  raw_output_text, created_at
+
+Exact DDL will be designed during implementation. All tables require RLS
+policies.
 
 ### Audit Storage
 
 Evaluation results are written to `accusations.ai_audit_run` before the
-client response is sent. Fields: `session_id`, `chosen_card_id`,
-`user_position`, `contract_name`, `contract_version`, `final_score`,
-`raw_output_text`.
+client response is sent. This is a **DB insert trail for manual
+troubleshooting only** — not exposed in any player-facing or admin UI.
 
 ## Game Rules
 
 ### Room Map (3x3 Grid)
 
 ```
-Hidden Attic    |  Gallery     |  Parlor
-Control Room    |  Entry Hall  |  Library
-Lower Cellar    |  Workshop    |  Back Hall
+Hidden Attic  |  Gallery      |  Control Room
+Parlor        |  Entry Hall   |  Library
+Workshop      |  Lower Cellar |  Back Hall
 ```
 
 ### Room Categories
@@ -91,9 +133,11 @@ Lower Cellar    |  Workshop    |  Back Hall
 
 ### Board View
 
+- All game views render as overlays on background images in `public/`
 - Navigation uses a 3x3 invisible hotspot grid over the mansion background
 - Hotspot coordinates are percentage-based, independent of artwork
 - Clicking a hotspot opens the corresponding room
+- Center area of the mansion is non-interactive (atmospheric only)
 
 ### Room View
 
@@ -116,24 +160,49 @@ Lower Cellar    |  Workshop    |  Back Hall
 
 - Player classifies: Proof or Objection
 - Classification is permanent (no undo)
-- The Auditor evaluates each classification, scoring -1.0 to 1.0
-  - `score < 0` → Objection
-  - `score >= 0` → Proof (0 counts as Proof)
+- The Auditor evaluates each classification via a **single LLM call** that
+  produces two outputs:
+  1. **Score** (-1.0 to 1.0): `score < 0` → Objection, `score >= 0` → Proof
+  2. **Narrative reaction**: a short dramatic observation in The Auditor's voice
+
+### Streak
+
+- Display-only metric shown in the UI overlay
+- Player picks Proof/Objection, The Auditor grades independently
+- If player's classification matches The Auditor's score direction → streak
+  increments
+- If mismatch → streak resets to 0
+- Streak does not affect gameplay, scoring, or final outcome
+
+### Session State Machine
+
+Session state is tracked as an enum:
+
+```
+created → exploring → deciding → resolved
+```
+
+- **created** — session initialized, no room entered yet
+- **exploring** — player is navigating rooms and classifying evidence
+- **deciding** — player has at least 1 classification and can Accuse/Pardon
+- **resolved** — final decision made, session complete, no further actions
 
 ### Session Flow
 
-1. Player enters mansion (session created)
-2. Player navigates rooms and classifies evidence
+1. Player enters mansion (session created → `created`)
+2. Player navigates rooms and classifies evidence (`exploring`)
 3. Evidence is stored in a drawer grouped by classification
 4. At least 1 artifact must be evaluated before final decision is enabled
-5. Player chooses **Accuse** or **Pardon**
+   (transition to `deciding`)
+5. Player chooses **Accuse** or **Pardon** (transition to `resolved`)
 6. The Auditor evaluates the final decision against all collected evidence,
    determining whether the player's reasoning holds up
 7. Session ends — no further evaluations
 
 ### Final Output
 
-1. **Resume** — static template populated with Proof-classified artifacts
+1. **Resume** — fixed HTML template populated with Proof-classified artifacts
+   (template design deferred to implementation, based on LinkedIn format)
 2. **Cover Letter** — memorable narrative written by The Auditor using the
    evidence the player collected, reflecting the Accuse/Pardon decision and
    the strength of the case built
@@ -143,11 +212,15 @@ Lower Cellar    |  Workshop    |  Back Hall
 
 - Theatrical, dramatic, Clue-board-game energy
 - Guides players but never assists or hints at "correct" classifications
-- Reacts to each classification with a short observation
-- Adapts tone based on the emerging hypothesis (early/mid/late/final phases)
+- Each classification triggers **one LLM call** → score + narrative reaction
+- Adapts tone based on the emerging hypothesis (phase thresholds deferred to
+  v2; v1 uses a single tone throughout)
 - Writes the cover letter narrative in its own voice using collected evidence
 - Evaluates the final Accuse/Pardon decision as the concluding act
-- All Auditor output is audited before client delivery
+- All Auditor output is written to `accusations.ai_audit_run` before client
+  delivery (DB trail for troubleshooting, not surfaced in UI)
+- v1: Accusation text selected from a static list at session start
+- v2: AI-generated accusation derived dynamically from card corpus
 
 ## Non-Negotiables
 
@@ -198,6 +271,15 @@ Lower Cellar    |  Workshop    |  Back Hall
 - Lefthook pre-commit hooks enforced
 - `@checkmarkdevtools/commitlint-plugin-rai` enforced via commitlint + Lefthook
 
+## v2 Deferred (not in scope for v1)
+
+- Room cooldown mechanics (revisit throttling)
+- Narrative phase thresholds (early/mid/late/final tone triggers)
+- Session replay from stored session_id
+- AI-generated accusation text from card corpus
+
+Tracked on the Monday board under the "v2 Deferred" group.
+
 ## What NOT to Do
 
 - Do not modify the `public.cards` schema in Supabase
@@ -207,3 +289,4 @@ Lower Cellar    |  Workshop    |  Back Hall
 - Do not allow classification undo
 - Do not show `fact` text to the player before the final reveal
 - Do not let The Auditor help players decide — it observes and reacts only
+- Do not implement replay, room cooldowns, or phase thresholds (v2)
