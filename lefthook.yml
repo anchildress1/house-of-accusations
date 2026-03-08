@@ -11,14 +11,10 @@ pre-commit:
     scan-secrets:
       run: make secret-scan
       stage_fixed: true
-    rai-lint:
-      run: npx @anthropic-ai/rai-lint --staged
-      stage_fixed: true
-
 commit-msg:
   commands:
     commitlint:
-      run: npx --no-install commitlint --edit
+      run: cd web && npx --no-install commitlint --edit {1}
 
 pre-push:
   parallel: false

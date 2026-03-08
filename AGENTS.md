@@ -196,7 +196,7 @@ Lower Cellar    |  Workshop    |  Back Hall
 - No code smell or security hotspot regressions
 - Conventional commits
 - Lefthook pre-commit hooks enforced
-- `rai-lint` plugin configured at root via Lefthook
+- `@checkmarkdevtools/commitlint-plugin-rai` enforced via commitlint + Lefthook
 
 ## What NOT to Do
 
