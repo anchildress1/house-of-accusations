@@ -1,0 +1,31 @@
+# lefthook.yml
+pre-commit:
+  parallel: false
+  commands:
+    format:
+      run: make format
+      stage_fixed: true
+    lint:
+      run: make lint
+      stage_fixed: true
+    scan-secrets:
+      run: make secret-scan
+      stage_fixed: true
+    rai-lint:
+      run: npx @anthropic-ai/rai-lint --staged
+      stage_fixed: true
+
+commit-msg:
+  commands:
+    commitlint:
+      run: npx --no-install commitlint --edit
+
+pre-push:
+  parallel: false
+  commands:
+    build:
+      run: make build
+    unit-tests:
+      run: make test
+    security-scan:
+      run: make secret-scan
