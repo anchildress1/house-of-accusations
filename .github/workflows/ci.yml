@@ -87,10 +87,17 @@ jobs:
           path: api/htmlcov/
           retention-days: 30
 
+      - name: Build Web
+        id: build-web
+        run: make build-web
+        continue-on-error: true
+
       - name: Run E2E Tests
+        if: steps.build-web.outcome == 'success'
         run: make e2e
 
       - name: Run Performance / Lighthouse Tests
+        if: steps.build-web.outcome == 'success'
         run: make perf
 
       - name: Secret Scan

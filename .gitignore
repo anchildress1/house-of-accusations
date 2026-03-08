@@ -27,9 +27,12 @@ Thumbs.db
 
 # Test / Coverage
 coverage/
+coverage.lcov
 .coverage
 htmlcov/
 .pytest_cache/
+.lighthouseci/
+playwright-report/
 
 # Docker
 *.log
