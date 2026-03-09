@@ -88,16 +88,21 @@ async def advance_session_state(
             f"Allowed: {[s.value for s in allowed]}",
         )
 
+    # Optimistic lock: only update if state hasn't changed since we read it
     result = (
         client.schema("accusations")
         .table("sessions")
         .update({"state": body.state.value})
         .eq("session_id", str(session_id))
+        .eq("state", current_state.value)
         .execute()
     )
     rows = _rows(result.data)
 
     if not rows:
-        raise HTTPException(status_code=500, detail="Failed to update session state")
+        raise HTTPException(
+            status_code=409,
+            detail="State was modified by another request. Please retry.",
+        )
 
     return SessionResponse(**rows[0])

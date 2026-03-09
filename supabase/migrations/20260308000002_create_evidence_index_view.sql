@@ -54,7 +54,8 @@ COMMENT ON VIEW accusations.evidence_full IS
     'Server-side card view including fact column for AI Auditor evaluation. '
     'Must never be exposed via PostgREST or client-facing APIs.';
 
--- Only service_role can access the full view (not anon)
-GRANT SELECT ON accusations.evidence_full TO authenticated;
--- Explicitly revoke anon access to the full view
+-- Only service_role can access the full view.
+-- service_role bypasses RLS and grants, so no explicit GRANT is needed.
+-- Revoke all access from anon and authenticated to enforce server-side only.
 REVOKE ALL ON accusations.evidence_full FROM anon;
+REVOKE ALL ON accusations.evidence_full FROM authenticated;

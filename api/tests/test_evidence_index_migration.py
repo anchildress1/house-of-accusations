@@ -93,3 +93,6 @@ class TestEvidenceFullView:
                 continue
             if "GRANT" in stripped and "evidence_full" in stripped and "anon" in stripped:
                 raise AssertionError("Must not grant anon access to evidence_full")
+
+    def test_revokes_authenticated_from_full_view(self) -> None:
+        assert "REVOKE ALL ON accusations.evidence_full FROM authenticated" in self.sql

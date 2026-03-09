@@ -121,8 +121,9 @@ ALTER TABLE accusations.ai_audit_run ENABLE ROW LEVEL SECURITY;
 -- Grant schema usage to anon and authenticated roles
 GRANT USAGE ON SCHEMA accusations TO anon, authenticated;
 
--- Sessions: anon can create, read, and update state
-GRANT SELECT, INSERT, UPDATE ON accusations.sessions TO anon, authenticated;
+-- Sessions: anon can create, read, and update state (state column only)
+GRANT SELECT, INSERT ON accusations.sessions TO anon, authenticated;
+GRANT UPDATE (state) ON accusations.sessions TO anon, authenticated;
 
 CREATE POLICY sessions_select ON accusations.sessions
     FOR SELECT TO anon, authenticated
