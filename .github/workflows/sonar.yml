@@ -21,9 +21,6 @@ jobs:
       contents: read
       pull-requests: write
 
-    env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -54,7 +51,6 @@ jobs:
         run: make test
 
       - name: SonarQube Scan
-        if: env.SONAR_TOKEN != ''
         uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6.0.0
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
