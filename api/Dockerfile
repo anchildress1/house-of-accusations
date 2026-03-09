@@ -1,3 +1,5 @@
+FROM ghcr.io/astral-sh/uv:0.7 AS uv
+
 FROM python:3.13-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -5,13 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl ca-certificates && \
-    apt-get upgrade -y && \
-    rm -rf /var/lib/apt/lists/*
-
-ADD https://astral.sh/uv/install.sh /uv-installer.sh
-RUN env UV_INSTALL_DIR="/usr/local/bin" sh /uv-installer.sh && rm /uv-installer.sh
+COPY --from=uv /uv /usr/local/bin/uv
 
 WORKDIR /app
 

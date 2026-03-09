@@ -27,7 +27,7 @@ test: test-web test-api
 
 build: build-web build-api
 
-e2e:
+e2e: build-web
 	@echo "Running E2E tests..."
 	@cd web && pnpm exec playwright test
 
