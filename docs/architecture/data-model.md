@@ -85,16 +85,52 @@ stateDiagram-v2
 All policies use `USING (true)` / `WITH CHECK (true)` — no authentication
 required (public portfolio experience).
 
+## Evidence Views
+
+Two database views provide the card query surface:
+
+```mermaid
+graph LR
+    subgraph "public schema (read-only)"
+        cards["public.cards<br/>276 cards"]
+    end
+
+    subgraph "accusations schema"
+        idx["evidence_index<br/>(player-facing)"]
+        full["evidence_full<br/>(AI-only)"]
+    end
+
+    cards --> idx
+    cards --> full
+
+    idx -.- note1["Excludes: fact column<br/>Filters: signal > 2, not deleted<br/>Access: anon, authenticated"]
+    full -.- note2["Includes: fact column<br/>Filters: signal > 2, not deleted<br/>Access: authenticated only (no anon)"]
+```
+
+| View | `fact` visible | Access | Purpose |
+|------|---------------|--------|---------|
+| `accusations.evidence_index` | No | anon, authenticated | Player card draws |
+| `accusations.evidence_full` | Yes | authenticated only | Auditor AI evaluation |
+
 ## Card Query Pattern
+
+Player-facing queries use `evidence_index`:
 
 ```sql
 SELECT "objectID", title, blurb, category, signal, url, tags
-FROM public.cards
+FROM accusations.evidence_index
 WHERE category = :room
-  AND signal > 2
   AND "objectID" NOT IN (:consumed_ids)
 ORDER BY random()
 LIMIT 6;
+```
+
+AI evaluation queries use `evidence_full` (server-side only):
+
+```sql
+SELECT "objectID", title, blurb, fact, category, signal, url, tags
+FROM accusations.evidence_full
+WHERE "objectID" = :card_id;
 ```
 
 Note: `fact` column is excluded from player-facing queries — visible only to
