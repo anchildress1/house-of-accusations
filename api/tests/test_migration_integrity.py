@@ -85,6 +85,20 @@ class TestAccusationsSchema:
     def test_no_delete_policies(self) -> None:
         assert "FOR DELETE" not in self.sql
 
+    def test_anon_is_read_only(self) -> None:
+        """Anon must only have SELECT grants, never INSERT or UPDATE."""
+        lines = self.sql.split("\n")
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith("--"):
+                continue
+            if "GRANT" not in stripped or "anon" not in stripped:
+                continue
+            if "INSERT" in stripped or "UPDATE" in stripped:
+                raise AssertionError(
+                    f"Anon must be read-only, but found write grant: {stripped}"
+                )
+
     def test_no_write_grants_to_public_schema(self) -> None:
         lines = self.sql.split("\n")
         for line in lines:

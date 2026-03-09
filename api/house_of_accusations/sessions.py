@@ -5,7 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException
 
-from house_of_accusations.db import get_supabase_client
+from house_of_accusations.db import get_supabase_client, get_supabase_service_client
 from house_of_accusations.models import (
     SESSION_TRANSITIONS,
     SessionCreate,
@@ -25,7 +25,7 @@ def _rows(data: Any) -> list[dict[str, Any]]:  # noqa: ANN401
 @router.post("", status_code=201)
 async def create_session(body: SessionCreate | None = None) -> SessionResponse:
     """Create a new game session with a local UUID."""
-    client = get_supabase_client()
+    client = get_supabase_service_client()
     insert_data: dict[str, str | None] = {}
     if body and body.accusation_text:
         insert_data["accusation_text"] = body.accusation_text
@@ -64,10 +64,10 @@ async def advance_session_state(
     body: SessionStateUpdate,
 ) -> SessionResponse:
     """Advance session state. Only valid forward transitions are allowed."""
-    client = get_supabase_client()
+    read_client = get_supabase_client()
 
     current = (
-        client.schema("accusations")
+        read_client.schema("accusations")
         .table("sessions")
         .select("*")
         .eq("session_id", str(session_id))
@@ -89,8 +89,9 @@ async def advance_session_state(
         )
 
     # Optimistic lock: only update if state hasn't changed since we read it
+    write_client = get_supabase_service_client()
     result = (
-        client.schema("accusations")
+        write_client.schema("accusations")
         .table("sessions")
         .update({"state": body.state.value})
         .eq("session_id", str(session_id))

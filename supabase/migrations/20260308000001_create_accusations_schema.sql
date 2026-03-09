@@ -118,49 +118,65 @@ ALTER TABLE accusations.sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE accusations.evidence_selections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE accusations.ai_audit_run ENABLE ROW LEVEL SECURITY;
 
--- Grant schema usage to anon and authenticated roles
+-- Grant schema usage to anon (read-only) and authenticated roles
 GRANT USAGE ON SCHEMA accusations TO anon, authenticated;
 
--- Sessions: anon can create, read, and update state (state column only)
-GRANT SELECT, INSERT ON accusations.sessions TO anon, authenticated;
-GRANT UPDATE (state) ON accusations.sessions TO anon, authenticated;
+-- =============================================================
+-- Anon role: READ-ONLY access to all tables
+-- All write operations go through the backend API using service_role
+-- (which bypasses RLS). Anon must never insert/update/delete.
+-- =============================================================
+
+-- Sessions: anon can only read
+GRANT SELECT ON accusations.sessions TO anon;
 
 CREATE POLICY sessions_select ON accusations.sessions
-    FOR SELECT TO anon, authenticated
+    FOR SELECT TO anon
     USING (true);
 
+-- Evidence selections: anon can only read
+GRANT SELECT ON accusations.evidence_selections TO anon;
+
+CREATE POLICY evidence_select ON accusations.evidence_selections
+    FOR SELECT TO anon
+    USING (true);
+
+-- AI audit run: anon can only read
+GRANT SELECT ON accusations.ai_audit_run TO anon;
+
+CREATE POLICY audit_select ON accusations.ai_audit_run
+    FOR SELECT TO anon
+    USING (true);
+
+-- =============================================================
+-- Authenticated role: full read/write access (for backend API key)
+-- =============================================================
+
+GRANT SELECT, INSERT, UPDATE ON accusations.sessions TO authenticated;
+GRANT UPDATE (state) ON accusations.sessions TO authenticated;
+
 CREATE POLICY sessions_insert ON accusations.sessions
-    FOR INSERT TO anon, authenticated
+    FOR INSERT TO authenticated
     WITH CHECK (true);
 
 CREATE POLICY sessions_update ON accusations.sessions
-    FOR UPDATE TO anon, authenticated
+    FOR UPDATE TO authenticated
     USING (true)
     WITH CHECK (true);
 
--- Evidence selections: anon can create and read
-GRANT SELECT, INSERT ON accusations.evidence_selections TO anon, authenticated;
-
-CREATE POLICY evidence_select ON accusations.evidence_selections
-    FOR SELECT TO anon, authenticated
-    USING (true);
+GRANT SELECT, INSERT ON accusations.evidence_selections TO authenticated;
 
 CREATE POLICY evidence_insert ON accusations.evidence_selections
-    FOR INSERT TO anon, authenticated
+    FOR INSERT TO authenticated
     WITH CHECK (true);
 
--- AI audit run: anon can create and read (append-only trail)
-GRANT SELECT, INSERT ON accusations.ai_audit_run TO anon, authenticated;
-
-CREATE POLICY audit_select ON accusations.ai_audit_run
-    FOR SELECT TO anon, authenticated
-    USING (true);
+GRANT SELECT, INSERT ON accusations.ai_audit_run TO authenticated;
 
 CREATE POLICY audit_insert ON accusations.ai_audit_run
-    FOR INSERT TO anon, authenticated
+    FOR INSERT TO authenticated
     WITH CHECK (true);
 
--- Ensure the game role has NO write access to public schema
+-- Ensure no write access to public schema from game roles
 -- (public.cards is read-only from the game's perspective)
 -- Note: Supabase default grants SELECT on public tables to anon.
--- No additional grants needed — we explicitly do NOT grant INSERT/UPDATE/DELETE.
+-- service_role bypasses RLS for all write operations.

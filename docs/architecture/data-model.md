@@ -75,15 +75,15 @@ stateDiagram-v2
 
 ## RLS Policy Summary
 
-| Table | SELECT | INSERT | UPDATE | DELETE |
-|-------|--------|--------|--------|--------|
-| `public.cards` | anon (default) | — | — | — |
-| `accusations.sessions` | anon | anon | anon | — |
-| `accusations.evidence_selections` | anon | anon | — | — |
-| `accusations.ai_audit_run` | anon | anon | — | — |
+**Anon role is read-only.** All write operations go through the backend API
+using `service_role` (which bypasses RLS).
 
-All policies use `USING (true)` / `WITH CHECK (true)` — no authentication
-required (public portfolio experience).
+| Table | anon SELECT | authenticated INSERT | authenticated UPDATE | DELETE |
+|-------|-------------|---------------------|---------------------|--------|
+| `public.cards` | yes (default) | — | — | — |
+| `accusations.sessions` | yes | yes | yes (state only) | — |
+| `accusations.evidence_selections` | yes | yes | — | — |
+| `accusations.ai_audit_run` | yes | yes | — | — |
 
 ## Evidence Views
 
