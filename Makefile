@@ -95,7 +95,7 @@ typecheck-web:
 
 test-web:
 	@echo "Running web tests..."
-	@cd web && pnpm test
+	@cd web && pnpm exec svelte-kit sync && pnpm test
 
 build-web:
 	@echo "Building web..."
