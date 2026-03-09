@@ -135,3 +135,30 @@ WHERE "objectID" = :card_id;
 
 Note: `fact` column is excluded from player-facing queries — visible only to
 The Auditor and at final reveal.
+
+## Session API Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as FastAPI
+    participant DB as Supabase
+
+    Client->>API: POST /sessions
+    API->>DB: INSERT into accusations.sessions
+    DB-->>API: session row (state=created)
+    API-->>Client: 201 SessionResponse
+
+    Client->>API: GET /sessions/{id}
+    API->>DB: SELECT from accusations.sessions
+    DB-->>API: session row
+    API-->>Client: 200 SessionResponse
+
+    Client->>API: PATCH /sessions/{id}/state
+    API->>DB: SELECT current state
+    DB-->>API: current session
+    Note over API: Validate transition<br/>created→exploring→deciding→resolved
+    API->>DB: UPDATE state
+    DB-->>API: updated session
+    API-->>Client: 200 SessionResponse
+```
