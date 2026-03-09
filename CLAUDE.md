@@ -1,4 +1,5 @@
 # CLAUDE.md
 
 Use @AGENTS.md
-Use @supabase/AGENTS.md
+
+When working inside `supabase/`, also use @supabase/AGENTS.md
