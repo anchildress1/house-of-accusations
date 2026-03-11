@@ -44,5 +44,11 @@
     "vite": "^6.0.0",
     "vitest": "^3.0.0"
   },
-  "packageManager": "pnpm@10.0.0"
+  "packageManager": "pnpm@10.0.0",
+  "pnpm": {
+    "overrides": {
+      "cookie": ">=0.7.0",
+      "tmp": ">=0.2.4"
+    }
+  }
 }
