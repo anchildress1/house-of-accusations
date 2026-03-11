@@ -50,6 +50,14 @@ jobs:
       - name: Run unit tests (generate coverage)
         run: make test
 
+      - name: Normalize Python coverage paths
+        # pytest-cov generates SF: paths relative to api/ (e.g. house_of_accusations/foo.py).
+        # SonarCloud expects paths relative to the repo root (e.g. api/house_of_accusations/foo.py).
+        run: |
+          if [[ -f api/coverage.lcov ]]; then
+            sed -i 's|^SF:house_of_accusations/|SF:api/house_of_accusations/|g' api/coverage.lcov
+          fi
+
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6.0.0
         env:

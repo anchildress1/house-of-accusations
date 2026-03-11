@@ -34,7 +34,7 @@ GRANT SELECT ON accusations.evidence_index TO anon, authenticated;
 -- View: accusations.evidence_full
 -- =============================================================
 -- AI-only view that includes the fact column for Auditor evaluation.
--- Used server-side only — never exposed to PostgREST / client.
+-- Restricted to service_role — never accessible to anon/authenticated client roles.
 
 CREATE OR REPLACE VIEW accusations.evidence_full AS
 SELECT

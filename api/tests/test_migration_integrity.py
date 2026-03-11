@@ -107,3 +107,24 @@ class TestAccusationsSchema:
                 raise AssertionError("Must not grant INSERT on public.cards")
             if "GRANT" in stripped and "UPDATE" in stripped and "public.cards" in stripped:
                 raise AssertionError("Must not grant UPDATE on public.cards")
+
+
+class TestRlsSecurityFixMigration:
+    """Verify the security fix migration revokes and re-grants as intended."""
+
+    sql = _read_migration("20260310000001_fix_rls_security.sql")
+
+    def test_revokes_anon_access_to_ai_audit_run(self) -> None:
+        assert "REVOKE SELECT ON accusations.ai_audit_run FROM anon" in self.sql
+
+    def test_drops_audit_select_policy(self) -> None:
+        assert "DROP POLICY IF EXISTS audit_select ON accusations.ai_audit_run" in self.sql
+
+    def test_revokes_broad_update_on_sessions(self) -> None:
+        assert "REVOKE UPDATE ON accusations.sessions FROM authenticated" in self.sql
+
+    def test_grants_state_column_update_only(self) -> None:
+        assert "GRANT UPDATE (state) ON accusations.sessions TO authenticated" in self.sql
+
+    def test_grants_service_role_on_evidence_full(self) -> None:
+        assert "GRANT SELECT ON accusations.evidence_full TO service_role" in self.sql

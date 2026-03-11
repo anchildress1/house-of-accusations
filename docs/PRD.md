@@ -164,11 +164,11 @@ Upon session resolution, three artifacts are generated:
 
 | Column | Type | Notes |
 |--------|------|-------|
-| `id` | bigint (PK) | Serial |
+| `id` | uuid (PK) | `gen_random_uuid()` |
 | `session_id` | uuid (FK → sessions) | |
 | `card_id` | uuid (FK → public.cards.objectID) | |
 | `user_position` | `accusations.user_position` enum | proof/objection |
-| `ai_score` | numeric(3,2) | −1.0 to 1.0 |
+| `ai_score` | numeric(4,2) | −1.0 to 1.0 |
 | `room` | text | Category/room where selected |
 | `created_at` | timestamptz | |
 
@@ -176,22 +176,22 @@ Upon session resolution, three artifacts are generated:
 
 | Column | Type | Notes |
 |--------|------|-------|
-| `id` | bigint (PK) | Serial |
+| `id` | uuid (PK) | `gen_random_uuid()` |
 | `session_id` | uuid (FK → sessions) | |
 | `chosen_card_id` | uuid (FK → public.cards.objectID) | |
 | `user_position` | `accusations.user_position` enum | |
 | `contract_name` | text | AI contract identifier |
 | `contract_version` | text | |
-| `final_score` | numeric(3,2) | |
+| `final_score` | numeric(4,2) | |
 | `raw_output_text` | text | Full LLM response |
 | `created_at` | timestamptz | |
 
 ### 5.3 Views
 
-- **`accusations.evidence_index`** — Player-facing: joins cards with
-  selections, hides `fact` column
-- **`accusations.evidence_full`** — AI/service-role only: includes `fact`,
-  revoked from anon/authenticated
+- **`accusations.evidence_index`** — Player-facing: filtered projection of
+  `public.cards` for eligible evidence, hides `fact` column
+- **`accusations.evidence_full`** — AI/service-role only: full projection of
+  `public.cards` including `fact`, revoked from anon/authenticated
 
 ## 6. Architecture
 
