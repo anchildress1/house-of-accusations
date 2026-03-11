@@ -1,16 +1,6 @@
 name: SonarCloud Analysis
 
-# workflow_run: post-merge path — reuses coverage artifacts from CI so tests
-# run only once. Evaluated from the default branch, so only effective after merge.
-#
-# pull_request + push: pre-merge path — runs tests locally because workflow_run
-# is only evaluated from the default branch, not PR branches.
-#
-# workflow_dispatch: manual trigger for ad-hoc scans.
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
   push:
@@ -24,49 +14,25 @@ concurrency:
 
 jobs:
   sonar:
-    # Skip draft PRs; skip workflow_run when CI failed
-    if: >-
-      (github.event_name == 'pull_request' && github.event.pull_request.draft == false) ||
-      github.event_name == 'push' ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: write
-      actions: read
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          # For workflow_run: check out the head commit of the triggering run
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
-
-      # --- Coverage from CI (workflow_run path) ---
-
-      - name: Download Sonar coverage from CI
-        if: github.event_name == 'workflow_run'
-        uses: actions/download-artifact@v4
-        with:
-          name: sonar-coverage
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          # Restore to repo root so paths match sonar-project.properties
-          path: .
-
-      # --- Generate coverage locally (pull_request / push / workflow_dispatch) ---
 
       - name: Setup pnpm
-        if: github.event_name != 'workflow_run'
         uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
         with:
           version: latest
 
       - name: Setup Node.js
-        if: github.event_name != 'workflow_run'
         uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -74,36 +40,15 @@ jobs:
           cache-dependency-path: web/pnpm-lock.yaml
 
       - name: Install uv
-        if: github.event_name != 'workflow_run'
         uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
         with:
           enable-cache: true
 
       - name: Install dependencies
-        if: github.event_name != 'workflow_run'
         run: make install
 
       - name: Run unit tests (generate coverage)
-        if: github.event_name != 'workflow_run'
         run: make test
-
-      # --- Extract PR context for workflow_run events ---
-
-      - name: Extract PR context
-        if: >-
-          github.event_name == 'workflow_run' &&
-          github.event.workflow_run.event == 'pull_request'
-        env:
-          PR_DATA: ${{ toJSON(github.event.workflow_run.pull_requests) }}
-        run: |
-          PR_NUMBER=$(echo "$PR_DATA" | jq -r 'if length > 0 then .[0].number else "" end')
-          PR_BRANCH=$(echo "$PR_DATA" | jq -r 'if length > 0 then .[0].head.ref else "" end')
-          PR_BASE=$(echo "$PR_DATA" | jq -r 'if length > 0 then .[0].base.ref else "" end')
-          if [[ -n "$PR_NUMBER" ]]; then
-            echo "SONAR_PR_KEY=$PR_NUMBER" >> "$GITHUB_ENV"
-            echo "SONAR_PR_BRANCH=$PR_BRANCH" >> "$GITHUB_ENV"
-            echo "SONAR_PR_BASE=$PR_BASE" >> "$GITHUB_ENV"
-          fi
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6.0.0
@@ -111,11 +56,3 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://sonarcloud.io
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_PR_KEY: ${{ env.SONAR_PR_KEY }}
-          SONAR_PR_BRANCH: ${{ env.SONAR_PR_BRANCH }}
-          SONAR_PR_BASE: ${{ env.SONAR_PR_BASE }}
-        with:
-          args: >-
-            ${{ env.SONAR_PR_KEY != '' &&
-              format('-Dsonar.pullrequest.key={0} -Dsonar.pullrequest.branch={1} -Dsonar.pullrequest.base={2}',
-                env.SONAR_PR_KEY, env.SONAR_PR_BRANCH, env.SONAR_PR_BASE) || '' }}

@@ -85,16 +85,6 @@ jobs:
           path: api/htmlcov/
           retention-days: 30
 
-      - name: Store Sonar Coverage
-        uses: actions/upload-artifact@v6
-        if: always()
-        with:
-          name: sonar-coverage
-          path: |
-            web/coverage/lcov.info
-            api/coverage.lcov
-          retention-days: 7
-
       - name: Build Web
         id: build-web
         run: make build-web
