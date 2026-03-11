@@ -11,8 +11,7 @@ class Settings(BaseSettings):
     supabase_service_role_key: str
     anthropic_api_key: str
     allowed_origins: str = (
-        "http://localhost:5173,http://localhost:4173,"
-        "https://unstable-accusations.anchildress1.dev"
+        "http://localhost:5173,http://localhost:4173,https://unstable-accusations.anchildress1.dev"
     )
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
