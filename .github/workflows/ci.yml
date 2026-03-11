@@ -3,6 +3,9 @@ name: CI
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 concurrency:
@@ -11,9 +14,9 @@ concurrency:
 
 jobs:
   test:
-    if: github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: read
       pull-requests: write
@@ -21,6 +24,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
@@ -68,6 +73,21 @@ jobs:
 
       - name: Run Unit Tests
         run: make test
+
+      - name: Normalize Python coverage paths
+        # pytest-cov runs from api/ so SF: paths are relative to api/.
+        # SonarCloud indexes sources relative to repo root, so prefix api/.
+        run: |
+          if [[ -f api/coverage.lcov ]]; then
+            sed -i 's|^SF:house_of_accusations/|SF:api/house_of_accusations/|g' api/coverage.lcov
+          fi
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6.0.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Store Web Coverage
         uses: actions/upload-artifact@v6
