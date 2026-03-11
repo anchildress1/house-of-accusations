@@ -34,9 +34,7 @@ def _mock_supabase_chain(return_data: list[dict[str, str | None]]) -> MagicMock:
     chain = MagicMock()
     chain.insert.return_value.execute.return_value = execute_result
     chain.select.return_value.eq.return_value.execute.return_value = execute_result
-    chain.update.return_value.eq.return_value.eq.return_value.execute.return_value = (
-        execute_result
-    )
+    chain.update.return_value.eq.return_value.eq.return_value.execute.return_value = execute_result
 
     schema_mock = MagicMock()
     schema_mock.table.return_value = chain
@@ -46,9 +44,7 @@ def _mock_supabase_chain(return_data: list[dict[str, str | None]]) -> MagicMock:
     return client_mock
 
 
-def _mock_state_transition(
-    from_state: str, to_state: str
-) -> tuple[MagicMock, MagicMock]:
+def _mock_state_transition(from_state: str, to_state: str) -> tuple[MagicMock, MagicMock]:
     """Return (read_client, write_client) mocks for state transitions."""
     select_result = MagicMock()
     select_result.data = [_mock_session(state=from_state)]
@@ -76,9 +72,7 @@ def _mock_state_transition(
 
 class TestCreateSession:
     @patch(_PATCH_WRITE)
-    async def test_create_session_default(
-        self, mock_svc: MagicMock, client: AsyncClient
-    ) -> None:
+    async def test_create_session_default(self, mock_svc: MagicMock, client: AsyncClient) -> None:
         mock_svc.return_value = _mock_supabase_chain([_mock_session()])
         response = await client.post("/sessions")
         assert response.status_code == 201
@@ -101,9 +95,7 @@ class TestCreateSession:
         assert response.json()["accusation_text"] == "Accused of excellence"
 
     @patch(_PATCH_WRITE)
-    async def test_create_session_failure(
-        self, mock_svc: MagicMock, client: AsyncClient
-    ) -> None:
+    async def test_create_session_failure(self, mock_svc: MagicMock, client: AsyncClient) -> None:
         mock_svc.return_value = _mock_supabase_chain([])
         response = await client.post("/sessions")
         assert response.status_code == 500
@@ -111,9 +103,7 @@ class TestCreateSession:
 
 class TestGetSession:
     @patch(_PATCH_READ)
-    async def test_get_session_found(
-        self, mock_get_client: MagicMock, client: AsyncClient
-    ) -> None:
+    async def test_get_session_found(self, mock_get_client: MagicMock, client: AsyncClient) -> None:
         mock_get_client.return_value = _mock_supabase_chain([_mock_session()])
         response = await client.get(f"/sessions/{SESSION_ID}")
         assert response.status_code == 200
@@ -178,9 +168,7 @@ class TestAdvanceSessionState:
     async def test_invalid_transition_created_to_deciding(
         self, mock_read: MagicMock, client: AsyncClient
     ) -> None:
-        mock_read.return_value = _mock_supabase_chain(
-            [_mock_session(state="created")]
-        )
+        mock_read.return_value = _mock_supabase_chain([_mock_session(state="created")])
         response = await client.patch(
             f"/sessions/{SESSION_ID}/state",
             json={"state": "deciding"},
@@ -191,9 +179,7 @@ class TestAdvanceSessionState:
     async def test_invalid_transition_resolved_to_anything(
         self, mock_read: MagicMock, client: AsyncClient
     ) -> None:
-        mock_read.return_value = _mock_supabase_chain(
-            [_mock_session(state="resolved")]
-        )
+        mock_read.return_value = _mock_supabase_chain([_mock_session(state="resolved")])
         response = await client.patch(
             f"/sessions/{SESSION_ID}/state",
             json={"state": "exploring"},

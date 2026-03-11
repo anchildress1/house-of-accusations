@@ -95,9 +95,7 @@ class TestAccusationsSchema:
             if "GRANT" not in stripped or "anon" not in stripped:
                 continue
             if "INSERT" in stripped or "UPDATE" in stripped:
-                raise AssertionError(
-                    f"Anon must be read-only, but found write grant: {stripped}"
-                )
+                raise AssertionError(f"Anon must be read-only, but found write grant: {stripped}")
 
     def test_no_write_grants_to_public_schema(self) -> None:
         lines = self.sql.split("\n")
