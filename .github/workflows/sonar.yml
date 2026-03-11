@@ -1,12 +1,21 @@
 name: SonarCloud Analysis
 
-# Primary trigger: reuse coverage artifacts from CI to avoid running tests twice.
-# Standalone trigger: workflow_dispatch runs tests locally (e.g. manual scans).
-# push to main is covered by workflow_run when CI runs on main.
+# workflow_run: post-merge path — reuses coverage artifacts from CI so tests
+# run only once. Evaluated from the default branch, so only effective after merge.
+#
+# pull_request + push: pre-merge path — runs tests locally because workflow_run
+# is only evaluated from the default branch, not PR branches.
+#
+# workflow_dispatch: manual trigger for ad-hoc scans.
 on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 concurrency:
@@ -15,10 +24,12 @@ concurrency:
 
 jobs:
   sonar:
-    # Only run when CI succeeded (or triggered manually)
+    # Skip draft PRs; skip workflow_run when CI failed
     if: >-
+      (github.event_name == 'pull_request' && github.event.pull_request.draft == false) ||
+      github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -46,7 +57,7 @@ jobs:
           # Restore to repo root so paths match sonar-project.properties
           path: .
 
-      # --- Generate coverage locally (standalone path) ---
+      # --- Generate coverage locally (pull_request / push / workflow_dispatch) ---
 
       - name: Setup pnpm
         if: github.event_name != 'workflow_run'
