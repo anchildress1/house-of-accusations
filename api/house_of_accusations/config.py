@@ -14,7 +14,7 @@ class Settings(BaseSettings):
         "http://localhost:5173,http://localhost:4173,https://unstable-accusations.anchildress1.dev"
     )
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": ("../.env", ".env"), "env_file_encoding": "utf-8"}
 
 
 @lru_cache(maxsize=1)

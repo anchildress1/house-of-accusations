@@ -7,7 +7,7 @@ from house_of_accusations.sessions import router as sessions_router
 app = FastAPI(title="House of Accusations API", version="0.1.0")
 
 _settings = get_settings()
-_allowed_origins = _settings.allowed_origins.split(",")
+_allowed_origins = [o.strip() for o in _settings.allowed_origins.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
