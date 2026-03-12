@@ -28,11 +28,24 @@ Thumbs.db
 # Test / Coverage
 coverage/
 coverage.lcov
+coverage.xml
 .coverage
 htmlcov/
 .pytest_cache/
 .lighthouseci/
 playwright-report/
+test-results/
+
+# Caches
+.mypy_cache/
+.ruff_cache/
+.turbo/
+.cache/
+.parcel-cache/
+
+# Secrets baseline
+.secrets.baseline
+.secrets.baseline.tmp
 
 # Docker
 *.log

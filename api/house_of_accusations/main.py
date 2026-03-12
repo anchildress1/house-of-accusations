@@ -1,20 +1,23 @@
-import os
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from house_of_accusations.config import get_settings
+from house_of_accusations.sessions import router as sessions_router
+
 app = FastAPI(title="House of Accusations API", version="0.1.0")
 
-_default_origins = "http://localhost:5173,http://localhost:4173"
-_allowed_origins = os.environ.get("ALLOWED_ORIGINS", _default_origins).split(",")
+_settings = get_settings()
+_allowed_origins = [o.strip() for o in _settings.allowed_origins.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PATCH"],
+    allow_headers=["Content-Type", "Accept"],
 )
+
+app.include_router(sessions_router)
 
 
 @app.get("/health")

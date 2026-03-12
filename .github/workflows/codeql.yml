@@ -1,0 +1,94 @@
+name: CodeQL
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        if: matrix.language == 'javascript-typescript'
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+        with:
+          version: latest
+
+      - name: Setup Node.js
+        if: matrix.language == 'javascript-typescript'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: "pnpm"
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install web dependencies
+        if: matrix.language == 'javascript-typescript'
+        run: cd web && pnpm install
+
+      - name: Install uv
+        if: matrix.language == 'python'
+        uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
+        with:
+          enable-cache: true
+
+      - name: Install API dependencies
+        if: matrix.language == 'python'
+        run: cd api && uv sync
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@820e3160e279568db735cee8ed8f8e77a6da7818 # v3.32.6
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@820e3160e279568db735cee8ed8f8e77a6da7818 # v3.32.6
+        with:
+          category: "/language:${{ matrix.language }}"
+          output: codeql-sarif-results
+
+      - name: Fail on any unapproved findings
+        run: |
+          pip install pyyaml -q
+          python3 scripts/check_codeql_results.py
+        env:
+          SARIF_DIR: codeql-sarif-results
+          SUPPRESSIONS_FILE: .github/codeql/suppressions.yml
+
+      - name: Upload SARIF as artifact
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: codeql-sarif-${{ matrix.language }}
+          path: codeql-sarif-results/
+          retention-days: 30

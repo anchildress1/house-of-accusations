@@ -271,6 +271,26 @@ created → exploring → deciding → resolved
 - Lefthook pre-commit hooks enforced
 - `@checkmarkdevtools/commitlint-plugin-rai` enforced via commitlint + Lefthook
 
+### CodeQL
+
+- CodeQL analysis runs on all PRs and pushes to `main` (`.github/workflows/codeql.yml`)
+- Analyzes both `javascript-typescript` and `python`
+- **Any finding at any severity fails the build** — there is no minimum severity threshold
+- **Inline suppressions are prohibited** (no `// codeql[...]` comments in source)
+- To suppress a finding, add an entry to `.github/codeql/suppressions.yml` with:
+  - `rule_id`, optional `path_pattern`, `reason`, `approved_by`, `approved_date`
+- **Every suppression requires explicit user approval** before merging
+- Approved suppressions must also be listed below under "Approved CodeQL Suppressions"
+
+#### Approved CodeQL Suppressions
+
+None approved yet. The list below must be updated whenever a suppression is
+added to `.github/codeql/suppressions.yml`.
+
+| Rule ID | Path Pattern | Reason | Approved By | Date |
+|---------|-------------|--------|-------------|------|
+| — | — | — | — | — |
+
 ## v2 Deferred (not in scope for v1)
 
 - Room cooldown mechanics (revisit throttling)
@@ -279,6 +299,62 @@ created → exploring → deciding → resolved
 - AI-generated accusation text from card corpus
 
 Tracked on the Monday board under the "v2 Deferred" group.
+
+## Epic & Task Workflow
+
+When instructed to **begin work on an epic**, follow this procedure end-to-end.
+When instructed to **complete a task**, follow the same steps but stop after
+that task is done (no PR).
+
+### 1. Discover Work
+
+- Access the Monday board (ID `18401136576`) via MCP to find the target epic
+  and its subitems (tasks), ordered by their numeric prefix
+- Skip any task whose name starts with `— DEFERRED`
+- Skip epics marked `Done`
+
+### 2. Branch
+
+- Create a feature branch: `feat/<epic-slug>` (e.g., `feat/canonical-data-session-model`)
+- Branch from `main`
+
+### 3. Execute Tasks in Order
+
+For each task in the epic:
+
+1. **Implement** — write source code (API, frontend, migrations, etc.)
+2. **Test** — write or update tests; run the full suite; ensure lint + typecheck
+   pass (`ruff check`, `mypy --strict`, `eslint`, `svelte-check`)
+3. **Commit** — one atomic conventional commit per task, referencing the Monday
+   task ID in the footer (`Refs: Monday task <id>`)
+4. **Push** — push after each task
+5. **Note in Monday** — post an update on the **epic item** summarizing what
+   was done
+
+### 4. Self-Review
+
+After all tasks are complete, run a code review covering:
+
+- Adherence to this AGENTS.md
+- Security (RLS, secrets, OWASP)
+- Code quality (lint, typecheck)
+- Test coverage and correctness
+
+Fix all critical and important findings before proceeding.
+
+### 5. Open PR
+
+- Create a PR against `main`
+- Post the PR link as a Monday update on the epic item
+
+### 6. Quality Gates (every commit)
+
+- `ruff check` clean, `mypy --strict` clean (API)
+- `eslint` clean, `svelte-check` clean (web, when applicable)
+- All tests pass, coverage ≥ 85%
+- Conventional commits with `Co-Authored-By` trailer
+- No secrets in source control
+- Anon role is read-only; all DB writes use `service_role`
 
 ## What NOT to Do
 

@@ -1,0 +1,17 @@
+name: "House of Accusations CodeQL Config"
+
+queries:
+  - uses: security-and-quality
+
+paths-ignore:
+  - "node_modules/**"
+  - "web/node_modules/**"
+  - "web/.svelte-kit/**"
+  - "web/dist/**"
+  - "web/build/**"
+  - "web/coverage/**"
+  - "api/.venv/**"
+  - "api/__pycache__/**"
+  - "api/htmlcov/**"
+  - "api/.ruff_cache/**"
+  - "api/.pytest_cache/**"
