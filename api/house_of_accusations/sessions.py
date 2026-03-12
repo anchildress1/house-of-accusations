@@ -1,9 +1,12 @@
 """Session management: create, read, and advance session state."""
 
+import logging
 from typing import Any, cast
 from uuid import UUID
 
+import httpx
 from fastapi import APIRouter, HTTPException
+from postgrest.exceptions import APIError
 
 from house_of_accusations.db import get_supabase_client, get_supabase_service_client
 from house_of_accusations.models import (
@@ -14,12 +17,22 @@ from house_of_accusations.models import (
     SessionStateUpdate,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
 
 def _rows(data: Any) -> list[dict[str, Any]]:  # noqa: ANN401
     """Narrow Supabase response data to a list of row dicts."""
     return cast(list[dict[str, Any]], data)
+
+
+def _supabase_error(operation: str, exc: Exception) -> HTTPException:
+    """Log a Supabase error and return a sanitized HTTPException."""
+    logger.error("Supabase %s failed", operation, exc_info=exc)
+    if isinstance(exc, httpx.RequestError):
+        return HTTPException(status_code=503, detail="Database temporarily unavailable")
+    return HTTPException(status_code=500, detail="Unexpected database error")
 
 
 @router.post("", status_code=201, responses={500: {"description": "Failed to create session"}})
@@ -30,9 +43,12 @@ async def create_session(body: SessionCreate | None = None) -> SessionResponse:
     if body and body.accusation_text:
         insert_data["accusation_text"] = body.accusation_text
 
-    result = client.schema("accusations").table("sessions").insert(insert_data).execute()
-    rows = _rows(result.data)
+    try:
+        result = client.schema("accusations").table("sessions").insert(insert_data).execute()
+    except (APIError, httpx.RequestError) as exc:
+        raise _supabase_error("sessions insert", exc) from exc
 
+    rows = _rows(result.data)
     if not rows:
         raise HTTPException(status_code=500, detail="Failed to create session")
 
@@ -43,15 +59,18 @@ async def create_session(body: SessionCreate | None = None) -> SessionResponse:
 async def get_session(session_id: UUID) -> SessionResponse:
     """Retrieve a session by ID."""
     client = get_supabase_client()
-    result = (
-        client.schema("accusations")
-        .table("sessions")
-        .select("*")
-        .eq("session_id", str(session_id))
-        .execute()
-    )
-    rows = _rows(result.data)
+    try:
+        result = (
+            client.schema("accusations")
+            .table("sessions")
+            .select("*")
+            .eq("session_id", str(session_id))
+            .execute()
+        )
+    except (APIError, httpx.RequestError) as exc:
+        raise _supabase_error("sessions select", exc) from exc
 
+    rows = _rows(result.data)
     if not rows:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -70,17 +89,20 @@ async def advance_session_state(
     body: SessionStateUpdate,
 ) -> SessionResponse:
     """Advance session state. Only valid forward transitions are allowed."""
-    read_client = get_supabase_service_client()
+    client = get_supabase_service_client()
 
-    current = (
-        read_client.schema("accusations")
-        .table("sessions")
-        .select("*")
-        .eq("session_id", str(session_id))
-        .execute()
-    )
+    try:
+        current = (
+            client.schema("accusations")
+            .table("sessions")
+            .select("*")
+            .eq("session_id", str(session_id))
+            .execute()
+        )
+    except (APIError, httpx.RequestError) as exc:
+        raise _supabase_error("sessions select for state advance", exc) from exc
+
     current_rows = _rows(current.data)
-
     if not current_rows:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -95,17 +117,19 @@ async def advance_session_state(
         )
 
     # Optimistic lock: only update if state hasn't changed since we read it
-    write_client = get_supabase_service_client()
-    result = (
-        write_client.schema("accusations")
-        .table("sessions")
-        .update({"state": body.state.value})
-        .eq("session_id", str(session_id))
-        .eq("state", current_state.value)
-        .execute()
-    )
-    rows = _rows(result.data)
+    try:
+        result = (
+            client.schema("accusations")
+            .table("sessions")
+            .update({"state": body.state.value})
+            .eq("session_id", str(session_id))
+            .eq("state", current_state.value)
+            .execute()
+        )
+    except (APIError, httpx.RequestError) as exc:
+        raise _supabase_error("sessions update state", exc) from exc
 
+    rows = _rows(result.data)
     if not rows:
         raise HTTPException(
             status_code=409,

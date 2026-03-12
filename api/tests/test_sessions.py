@@ -4,7 +4,9 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
+import httpx
 from httpx import AsyncClient
+from postgrest.exceptions import APIError
 
 SESSION_ID = str(uuid4())
 NOW = datetime.now(tz=UTC).isoformat()
@@ -208,6 +210,124 @@ class TestAdvanceSessionState:
         )
         assert response.status_code == 409
         assert "modified" in response.json()["detail"].lower()
+
+
+def _mock_supabase_raises(exc: Exception) -> MagicMock:
+    """Build a client mock where .execute() raises the given exception."""
+    chain = MagicMock()
+    chain.insert.return_value.execute.side_effect = exc
+    chain.select.return_value.eq.return_value.execute.side_effect = exc
+
+    schema_mock = MagicMock()
+    schema_mock.table.return_value = chain
+
+    client_mock = MagicMock()
+    client_mock.schema.return_value = schema_mock
+    return client_mock
+
+
+class TestSupabaseErrorHandling:
+    @patch(_PATCH_WRITE)
+    async def test_create_session_api_error_returns_500(
+        self, mock_svc: MagicMock, client: AsyncClient
+    ) -> None:
+        mock_svc.return_value = _mock_supabase_raises(APIError({"message": "internal"}))
+        response = await client.post("/sessions")
+        assert response.status_code == 500
+        assert "database" in response.json()["detail"].lower()
+
+    @patch(_PATCH_WRITE)
+    async def test_create_session_network_error_returns_503(
+        self, mock_svc: MagicMock, client: AsyncClient
+    ) -> None:
+        mock_svc.return_value = _mock_supabase_raises(httpx.ConnectError("timeout"))
+        response = await client.post("/sessions")
+        assert response.status_code == 503
+
+    @patch(_PATCH_READ)
+    async def test_get_session_api_error_returns_500(
+        self, mock_read: MagicMock, client: AsyncClient
+    ) -> None:
+        mock_read.return_value = _mock_supabase_raises(APIError({"message": "internal"}))
+        response = await client.get(f"/sessions/{SESSION_ID}")
+        assert response.status_code == 500
+        assert "database" in response.json()["detail"].lower()
+
+    @patch(_PATCH_WRITE)
+    async def test_advance_state_read_api_error_returns_500(
+        self, mock_svc: MagicMock, client: AsyncClient
+    ) -> None:
+        mock_svc.return_value = _mock_supabase_raises(APIError({"message": "internal"}))
+        response = await client.patch(
+            f"/sessions/{SESSION_ID}/state",
+            json={"state": "exploring"},
+        )
+        assert response.status_code == 500
+        assert "database" in response.json()["detail"].lower()
+
+    @patch(_PATCH_WRITE)
+    async def test_advance_state_write_api_error_returns_500(
+        self, mock_svc: MagicMock, client: AsyncClient
+    ) -> None:
+        select_result = MagicMock()
+        select_result.data = [_mock_session(state="created")]
+
+        table = MagicMock()
+        table.select.return_value.eq.return_value.execute.return_value = select_result
+        table.update.return_value.eq.return_value.eq.return_value.execute.side_effect = APIError(
+            {"message": "internal"}
+        )
+        schema_mock = MagicMock()
+        schema_mock.table.return_value = table
+        client_mock = MagicMock()
+        client_mock.schema.return_value = schema_mock
+        mock_svc.return_value = client_mock
+
+        response = await client.patch(
+            f"/sessions/{SESSION_ID}/state",
+            json={"state": "exploring"},
+        )
+        assert response.status_code == 500
+        assert "database" in response.json()["detail"].lower()
+
+
+class TestInputValidation:
+    async def test_create_session_invalid_accusation_type_returns_422(
+        self, client: AsyncClient
+    ) -> None:
+        response = await client.post("/sessions", json={"accusation_text": 42})
+        assert response.status_code == 422
+
+    async def test_create_session_accusation_too_long_returns_422(
+        self, client: AsyncClient
+    ) -> None:
+        response = await client.post("/sessions", json={"accusation_text": "x" * 501})
+        assert response.status_code == 422
+
+    async def test_get_session_invalid_uuid_returns_422(self, client: AsyncClient) -> None:
+        response = await client.get("/sessions/not-a-uuid")
+        assert response.status_code == 422
+
+    async def test_advance_state_invalid_uuid_returns_422(self, client: AsyncClient) -> None:
+        response = await client.patch("/sessions/not-a-uuid/state", json={"state": "exploring"})
+        assert response.status_code == 422
+
+    async def test_advance_state_invalid_state_value_returns_422(self, client: AsyncClient) -> None:
+        response = await client.patch(
+            f"/sessions/{SESSION_ID}/state", json={"state": "nonexistent"}
+        )
+        assert response.status_code == 422
+
+    @patch(_PATCH_WRITE)
+    async def test_same_state_transition_returns_409(
+        self, mock_svc: MagicMock, client: AsyncClient
+    ) -> None:
+        mock_svc.return_value = _mock_supabase_chain([_mock_session(state="exploring")])
+        response = await client.patch(
+            f"/sessions/{SESSION_ID}/state",
+            json={"state": "exploring"},
+        )
+        assert response.status_code == 409
 
 
 class TestSessionStateTransitions:
