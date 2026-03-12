@@ -70,7 +70,7 @@ async def advance_session_state(
     body: SessionStateUpdate,
 ) -> SessionResponse:
     """Advance session state. Only valid forward transitions are allowed."""
-    read_client = get_supabase_client()
+    read_client = get_supabase_service_client()
 
     current = (
         read_client.schema("accusations")

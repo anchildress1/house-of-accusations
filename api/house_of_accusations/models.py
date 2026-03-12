@@ -31,7 +31,7 @@ SESSION_TRANSITIONS: dict[SessionState, set[SessionState]] = {
 class SessionCreate(BaseModel):
     """Request body for creating a new session."""
 
-    accusation_text: str | None = None
+    accusation_text: str | None = Field(default=None, max_length=500)
 
 
 class SessionResponse(BaseModel):
