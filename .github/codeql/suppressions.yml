@@ -1,0 +1,17 @@
+# CodeQL Suppression Registry
+#
+# All suppressions must be documented here and approved per AGENTS.md.
+# Inline suppressions (e.g. // codeql[...]) are prohibited.
+# To suppress a finding, add an entry below with full documentation.
+#
+# Format:
+#   - rule_id: CodeQL rule identifier (e.g. "py/sql-injection")
+#     path_pattern: (optional) file path glob; omit to suppress rule everywhere
+#     reason: why this is a false positive or accepted risk
+#     approved_by: name of approver
+#     approved_date: YYYY-MM-DD
+#
+# Any suppressions added here must also be documented in AGENTS.md under
+# "Approved CodeQL Suppressions".
+
+suppressions: []

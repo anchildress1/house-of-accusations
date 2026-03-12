@@ -271,6 +271,26 @@ created → exploring → deciding → resolved
 - Lefthook pre-commit hooks enforced
 - `@checkmarkdevtools/commitlint-plugin-rai` enforced via commitlint + Lefthook
 
+### CodeQL
+
+- CodeQL analysis runs on all PRs and pushes to `main` (`.github/workflows/codeql.yml`)
+- Analyzes both `javascript-typescript` and `python`
+- **Any finding at any severity fails the build** — there is no minimum severity threshold
+- **Inline suppressions are prohibited** (no `// codeql[...]` comments in source)
+- To suppress a finding, add an entry to `.github/codeql/suppressions.yml` with:
+  - `rule_id`, optional `path_pattern`, `reason`, `approved_by`, `approved_date`
+- **Every suppression requires explicit user approval** before merging
+- Approved suppressions must also be listed below under "Approved CodeQL Suppressions"
+
+#### Approved CodeQL Suppressions
+
+None approved yet. The list below must be updated whenever a suppression is
+added to `.github/codeql/suppressions.yml`.
+
+| Rule ID | Path Pattern | Reason | Approved By | Date |
+|---------|-------------|--------|-------------|------|
+| — | — | — | — | — |
+
 ## v2 Deferred (not in scope for v1)
 
 - Room cooldown mechanics (revisit throttling)
